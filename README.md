@@ -60,6 +60,41 @@ ansible-playbook -i localhost, site.yml --check
 
 Run again without `--check` to apply the declaration. A run that finds nothing to change writes nothing.
 
+## Usage
+
+### Export the server configuration
+
+`playbooks/youtrack_export.yml` writes the configuration of a YouTrack server to one local JSON file. It runs the read-only
+`jpe_ansible.youtrack.export` role with a temporary permanent token of the admin user. The play:
+
+1. Reads the Hub credential of the admin user from the credential store.
+2. Finds the admin user by login and the YouTrack service in the Hub services list, unless `YOUTRACK_HUB_SERVICE_ID` is set.
+3. Creates one permanent token for the admin user, scoped to the YouTrack service.
+4. Runs the export role with that token and writes the file.
+5. Deletes the token by its id, also when the export fails.
+
+The playbook makes exactly two writes, the create and the delete of its own temporary token. Every other request is a
+read. In check mode the play stops before it creates the token, because an export cannot be simulated.
+
+| Variable | Required | Purpose |
+| --- | --- | --- |
+| `YOUTRACK_URL` | Yes | Base URL of the server, for example `https://youtrack.example.com`. |
+| `YOUTRACK_HUB_URL` | No | Hub REST base URL. Defaults to `<YOUTRACK_URL>/hub/api/rest`, the built-in Hub of the server. |
+| `BAO_ADDR` | Yes | Address of the credential store. |
+| `BAO_TOKEN` | Yes | Token that may read the Hub credential. |
+| `YOUTRACK_ADMIN_OPENBAO_MOUNT` | Yes | KV version 2 mount that holds the Hub credential. |
+| `YOUTRACK_ADMIN_OPENBAO_PATH` | Yes | Secret path that holds the Hub credential. |
+| `YOUTRACK_ADMIN_OPENBAO_FIELD` | Yes | Field of that secret that holds the permanent token of the admin user. |
+| `YOUTRACK_ADMIN_LOGIN` | Yes | Login of the admin user. The play stops unless exactly one Hub user has this login. |
+| `YOUTRACK_HUB_SERVICE_ID` | No | Hub id of the YouTrack service. Set it to skip the lookup by application name. |
+| `YOUTRACK_EXPORT_DEST` | Yes | Path of the JSON file to write. |
+
+```sh
+ansible-playbook playbooks/youtrack_export.yml
+```
+
+The playbook is not part of `site.yml`. Run it on demand.
+
 ## Contributing
 
 Open a pull request against `main`. Keep each commit to one change. Use generic examples only:
