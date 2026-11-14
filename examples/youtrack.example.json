@@ -1,0 +1,39 @@
+{
+  "youtrack": {
+    "youtrack_url": "https://youtrack.example.com",
+    "bundles": {
+      "bundles_enum": [
+        {
+          "name": "Types",
+          "values": [
+            {"name": "Bug", "color_id": "1"},
+            {"name": "Feature"}
+          ]
+        }
+      ],
+      "bundles_state": [
+        {
+          "name": "States",
+          "values": [
+            {"name": "Submitted", "is_resolved": false},
+            {"name": "Open", "is_resolved": false},
+            {"name": "Fixed", "is_resolved": true},
+            {"name": "Verified", "is_resolved": true, "description": "Issue fix is verified"}
+          ]
+        }
+      ]
+    },
+    "custom_fields": {
+      "custom_fields_declared": [
+        {"name": "Type", "field_type": "enum[1]", "bundle": "Types", "projects": ["DEMO"], "can_be_empty": false},
+        {"name": "State", "field_type": "state[1]", "bundle": "States", "projects": ["DEMO"]},
+        {"name": "Due Date", "field_type": "date", "projects": ["DEMO"]}
+      ]
+    },
+    "link_types": {
+      "link_types_declared": [
+        {"name": "Part", "source_to_target": "Part of", "target_to_source": "Part of", "aggregation": true}
+      ]
+    }
+  }
+}

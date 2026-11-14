@@ -1,0 +1,67 @@
+---
+- name: Match the YouTrack configuration
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    # Read from the declaration document that the first pre-task loads.
+    youtrack_url: "{{ tofu_data.youtrack.youtrack_url }}"
+    inventory_resolve_required_keys:
+      - youtrack
+
+  pre_tasks:
+    - name: Require the document location and the credential location
+      ansible.builtin.assert:
+        that:
+          - >-
+            (lookup('ansible.builtin.env', 'TOFU_INVENTORY_S3_URI') | length > 0)
+            or (lookup('ansible.builtin.env', 'TOFU_INVENTORY_PATH') | length > 0)
+          - lookup('ansible.builtin.env', 'BAO_ADDR') | length > 0
+          - lookup('ansible.builtin.env', 'YOUTRACK_OPENBAO_MOUNT') | length > 0
+          - lookup('ansible.builtin.env', 'YOUTRACK_OPENBAO_PATH') | length > 0
+          - lookup('ansible.builtin.env', 'YOUTRACK_OPENBAO_FIELD') | length > 0
+        fail_msg: >-
+          Set TOFU_INVENTORY_S3_URI or TOFU_INVENTORY_PATH, and BAO_ADDR, YOUTRACK_OPENBAO_MOUNT,
+          YOUTRACK_OPENBAO_PATH and YOUTRACK_OPENBAO_FIELD. See README.md.
+        quiet: true
+
+    - name: Load the declaration document
+      ansible.builtin.include_role:
+        name: dryvist.homelab.inventory_resolve
+
+    - name: Read the YouTrack API key from the credential store
+      community.hashi_vault.vault_kv2_get:
+        url: "{{ lookup('ansible.builtin.env', 'BAO_ADDR') }}"
+        token: "{{ lookup('ansible.builtin.env', 'BAO_TOKEN') }}"
+        engine_mount_point: "{{ lookup('ansible.builtin.env', 'YOUTRACK_OPENBAO_MOUNT') }}"
+        path: "{{ lookup('ansible.builtin.env', 'YOUTRACK_OPENBAO_PATH') }}"
+      register: youtrack_credential
+      check_mode: false
+      no_log: true
+
+    - name: Check that the credential holds the API key field
+      ansible.builtin.assert:
+        that:
+          - lookup('ansible.builtin.env', 'YOUTRACK_OPENBAO_FIELD') in youtrack_credential.secret
+        fail_msg: The credential at the configured path has no field named by YOUTRACK_OPENBAO_FIELD.
+        quiet: true
+
+    - name: Keep the YouTrack API key for the roles
+      ansible.builtin.set_fact:
+        youtrack_api_key: "{{ youtrack_credential.secret[lookup('ansible.builtin.env', 'YOUTRACK_OPENBAO_FIELD')] }}"
+      no_log: true
+
+  roles:
+    - role: jpe_ansible.youtrack.bundles
+      vars:
+        bundles_enum: "{{ tofu_data.youtrack.bundles.bundles_enum }}"
+        bundles_state: "{{ tofu_data.youtrack.bundles.bundles_state }}"
+
+    - role: jpe_ansible.youtrack.custom_fields
+      vars:
+        custom_fields_declared: "{{ tofu_data.youtrack.custom_fields.custom_fields_declared }}"
+
+    - role: jpe_ansible.youtrack.link_types
+      vars:
+        link_types_declared: "{{ tofu_data.youtrack.link_types.link_types_declared }}"
