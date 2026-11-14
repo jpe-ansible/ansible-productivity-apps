@@ -18,11 +18,12 @@
             (lookup('ansible.builtin.env', 'TOFU_INVENTORY_S3_URI') | length > 0)
             or (lookup('ansible.builtin.env', 'TOFU_INVENTORY_PATH') | length > 0)
           - lookup('ansible.builtin.env', 'BAO_ADDR') | length > 0
+          - lookup('ansible.builtin.env', 'BAO_TOKEN') | length > 0
           - lookup('ansible.builtin.env', 'YOUTRACK_OPENBAO_MOUNT') | length > 0
           - lookup('ansible.builtin.env', 'YOUTRACK_OPENBAO_PATH') | length > 0
           - lookup('ansible.builtin.env', 'YOUTRACK_OPENBAO_FIELD') | length > 0
         fail_msg: >-
-          Set TOFU_INVENTORY_S3_URI or TOFU_INVENTORY_PATH, and BAO_ADDR, YOUTRACK_OPENBAO_MOUNT,
+          Set TOFU_INVENTORY_S3_URI or TOFU_INVENTORY_PATH, and BAO_ADDR, BAO_TOKEN, YOUTRACK_OPENBAO_MOUNT,
           YOUTRACK_OPENBAO_PATH and YOUTRACK_OPENBAO_FIELD. See README.md.
         quiet: true
 
