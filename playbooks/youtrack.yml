@@ -7,11 +7,15 @@
   vars:
     # Read from the declaration document that the first pre-task loads.
     youtrack_url: "{{ tofu_data.youtrack.youtrack_url }}"
+    # Hub REST base. The built-in Hub of the server unless YOUTRACK_HUB_URL names another one.
+    hub_url: >-
+      {{ lookup('ansible.builtin.env', 'YOUTRACK_HUB_URL')
+      or (youtrack_url ~ '/hub/api/rest') }}
     inventory_resolve_required_keys:
       - youtrack
 
   pre_tasks:
-    - name: Require the document location and the credential location
+    - name: Require the document location, the credential location and the admin login
       ansible.builtin.assert:
         that:
           - >-
@@ -19,50 +23,52 @@
             or (lookup('ansible.builtin.env', 'TOFU_INVENTORY_PATH') | length > 0)
           - lookup('ansible.builtin.env', 'BAO_ADDR') | length > 0
           - lookup('ansible.builtin.env', 'BAO_TOKEN') | length > 0
-          - lookup('ansible.builtin.env', 'YOUTRACK_OPENBAO_MOUNT') | length > 0
-          - lookup('ansible.builtin.env', 'YOUTRACK_OPENBAO_PATH') | length > 0
-          - lookup('ansible.builtin.env', 'YOUTRACK_OPENBAO_FIELD') | length > 0
+          - lookup('ansible.builtin.env', 'YOUTRACK_ADMIN_OPENBAO_MOUNT') | length > 0
+          - lookup('ansible.builtin.env', 'YOUTRACK_ADMIN_OPENBAO_PATH') | length > 0
+          - lookup('ansible.builtin.env', 'YOUTRACK_ADMIN_OPENBAO_FIELD') | length > 0
+          - lookup('ansible.builtin.env', 'YOUTRACK_ADMIN_LOGIN') | length > 0
         fail_msg: >-
-          Set TOFU_INVENTORY_S3_URI or TOFU_INVENTORY_PATH, and BAO_ADDR, BAO_TOKEN, YOUTRACK_OPENBAO_MOUNT,
-          YOUTRACK_OPENBAO_PATH and YOUTRACK_OPENBAO_FIELD. See README.md.
+          Set TOFU_INVENTORY_S3_URI or TOFU_INVENTORY_PATH, and BAO_ADDR, BAO_TOKEN, YOUTRACK_ADMIN_OPENBAO_MOUNT,
+          YOUTRACK_ADMIN_OPENBAO_PATH, YOUTRACK_ADMIN_OPENBAO_FIELD and YOUTRACK_ADMIN_LOGIN. See README.md.
         quiet: true
 
     - name: Load the declaration document
       ansible.builtin.include_role:
         name: dryvist.homelab.inventory_resolve
 
-    - name: Read the YouTrack API key from the credential store
-      community.hashi_vault.vault_kv2_get:
-        url: "{{ lookup('ansible.builtin.env', 'BAO_ADDR') }}"
-        token: "{{ lookup('ansible.builtin.env', 'BAO_TOKEN') }}"
-        engine_mount_point: "{{ lookup('ansible.builtin.env', 'YOUTRACK_OPENBAO_MOUNT') }}"
-        path: "{{ lookup('ansible.builtin.env', 'YOUTRACK_OPENBAO_PATH') }}"
-      register: youtrack_credential
-      check_mode: false
-      no_log: true
+  tasks:
+    - name: Match the configuration with a temporary token that the play deletes afterwards
+      block:
+        - name: Mint the temporary token
+          ansible.builtin.include_tasks: tasks/temp_token_mint.yml
+          vars:
+            temp_token_prefix: config-converge
+            temp_token_allow_check: true
 
-    - name: Check that the credential holds the API key field
-      ansible.builtin.assert:
-        that:
-          - lookup('ansible.builtin.env', 'YOUTRACK_OPENBAO_FIELD') in youtrack_credential.secret
-        fail_msg: The credential at the configured path has no field named by YOUTRACK_OPENBAO_FIELD.
-        quiet: true
+        - name: Keep the minted token as the YouTrack API key for the roles
+          ansible.builtin.set_fact:
+            youtrack_api_key: "{{ export_token_value }}"
+          no_log: true
 
-    - name: Keep the YouTrack API key for the roles
-      ansible.builtin.set_fact:
-        youtrack_api_key: "{{ youtrack_credential.secret[lookup('ansible.builtin.env', 'YOUTRACK_OPENBAO_FIELD')] }}"
-      no_log: true
+        - name: Match the YouTrack bundles
+          ansible.builtin.include_role:
+            name: jpe_ansible.youtrack.bundles
+          vars:
+            bundles_enum: "{{ tofu_data.youtrack.bundles.bundles_enum }}"
+            bundles_state: "{{ tofu_data.youtrack.bundles.bundles_state }}"
 
-  roles:
-    - role: jpe_ansible.youtrack.bundles
-      vars:
-        bundles_enum: "{{ tofu_data.youtrack.bundles.bundles_enum }}"
-        bundles_state: "{{ tofu_data.youtrack.bundles.bundles_state }}"
+        - name: Match the YouTrack custom fields
+          ansible.builtin.include_role:
+            name: jpe_ansible.youtrack.custom_fields
+          vars:
+            custom_fields_declared: "{{ tofu_data.youtrack.custom_fields.custom_fields_declared }}"
 
-    - role: jpe_ansible.youtrack.custom_fields
-      vars:
-        custom_fields_declared: "{{ tofu_data.youtrack.custom_fields.custom_fields_declared }}"
+        - name: Match the YouTrack link types
+          ansible.builtin.include_role:
+            name: jpe_ansible.youtrack.link_types
+          vars:
+            link_types_declared: "{{ tofu_data.youtrack.link_types.link_types_declared }}"
 
-    - role: jpe_ansible.youtrack.link_types
-      vars:
-        link_types_declared: "{{ tofu_data.youtrack.link_types.link_types_declared }}"
+      always:
+        - name: Delete the temporary token by its id
+          ansible.builtin.include_tasks: tasks/temp_token_delete.yml

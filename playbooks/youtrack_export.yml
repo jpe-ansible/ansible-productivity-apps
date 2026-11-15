@@ -9,10 +9,6 @@
     hub_url: >-
       {{ lookup('ansible.builtin.env', 'YOUTRACK_HUB_URL')
       or (lookup('ansible.builtin.env', 'YOUTRACK_URL') ~ '/hub/api/rest') }}
-    admin_login: "{{ lookup('ansible.builtin.env', 'YOUTRACK_ADMIN_LOGIN') }}"
-    hub_service_override: "{{ lookup('ansible.builtin.env', 'YOUTRACK_HUB_SERVICE_ID') }}"
-    users_query: "{{ {'fields': 'id,login', 'query': 'login: ' ~ admin_login} | urlencode }}"
-    services_query: "{{ {'fields': 'id,name,applicationName', 'query': 'applicationName: YouTrack'} | urlencode }}"
 
   pre_tasks:
     - name: Require the server, the credential location, the admin login and the export file
@@ -34,126 +30,11 @@
   tasks:
     - name: Export with a temporary token that the play deletes afterwards
       block:
-        - name: Stop before minting when the run is a check run
-          ansible.builtin.fail:
-            msg: >-
-              An export cannot be simulated in check mode, because it creates a temporary token.
-              Run it without --check.
-          when: ansible_check_mode
-
-        - name: Keep the run timestamp in the name of the temporary token
-          ansible.builtin.set_fact:
-            export_token_name: "config-export-{{ now(utc=true, fmt='%Y%m%dT%H%M%SZ') }}"
-
-        - name: Read the Hub credential from the credential store
-          community.hashi_vault.vault_kv2_get:
-            url: "{{ lookup('ansible.builtin.env', 'BAO_ADDR') }}"
-            token: "{{ lookup('ansible.builtin.env', 'BAO_TOKEN') }}"
-            engine_mount_point: "{{ lookup('ansible.builtin.env', 'YOUTRACK_ADMIN_OPENBAO_MOUNT') }}"
-            path: "{{ lookup('ansible.builtin.env', 'YOUTRACK_ADMIN_OPENBAO_PATH') }}"
-          register: hub_credential
-          no_log: true
-
-        - name: Check that the credential holds the Hub token field
-          ansible.builtin.assert:
-            that:
-              - lookup('ansible.builtin.env', 'YOUTRACK_ADMIN_OPENBAO_FIELD') in hub_credential.secret
-            fail_msg: The credential at the configured path has no field named by YOUTRACK_ADMIN_OPENBAO_FIELD.
-            quiet: true
-          no_log: true
-
-        - name: Keep the Hub token for the Hub calls
-          ansible.builtin.set_fact:
-            hub_token: >-
-              {{ hub_credential.secret[lookup('ansible.builtin.env', 'YOUTRACK_ADMIN_OPENBAO_FIELD')] }}
-          no_log: true
-
-        - name: Find the admin user by login
-          ansible.builtin.uri:
-            url: "{{ hub_url }}/users?{{ users_query }}"
-            method: GET
-            headers:
-              Authorization: "Bearer {{ hub_token }}"
-              Accept: application/json
-            status_code: 200
-            return_content: true
-          register: admin_users
-          no_log: true
-
-        - name: Stop unless exactly one user has the admin login
-          ansible.builtin.assert:
-            that:
-              - (admin_users.json.users | map(attribute='login') | list) == [admin_login]
-            fail_msg: YOUTRACK_ADMIN_LOGIN does not name exactly one Hub user.
-            quiet: true
-          no_log: true
-
-        - name: Keep the admin user id for the token calls
-          ansible.builtin.set_fact:
-            admin_user_id: "{{ admin_users.json.users[0].id }}"
-          no_log: true
-
-        - name: Find the YouTrack service in the Hub services list
-          ansible.builtin.uri:
-            url: "{{ hub_url }}/services?{{ services_query }}"
-            method: GET
-            headers:
-              Authorization: "Bearer {{ hub_token }}"
-              Accept: application/json
-            status_code: 200
-            return_content: true
-          register: youtrack_services
-          no_log: true
-          when: hub_service_override | length == 0
-
-        - name: Stop unless exactly one service is the YouTrack application
-          ansible.builtin.assert:
-            that:
-              - youtrack_services.json.services | length == 1
-            fail_msg: The Hub services list does not hold exactly one YouTrack service. Set YOUTRACK_HUB_SERVICE_ID.
-            quiet: true
-          no_log: true
-          when: hub_service_override | length == 0
-
-        - name: Keep the service id for the token scope
-          ansible.builtin.set_fact:
-            scope_service_id: >-
-              {{ hub_service_override if hub_service_override | length > 0
-              else youtrack_services.json.services[0].id }}
-          no_log: true
-
-        - name: Mint a temporary permanent token for the admin user
-          ansible.builtin.uri:
-            url: "{{ hub_url }}/users/{{ admin_user_id }}/permanenttokens?fields=id,name,token"
-            method: POST
-            headers:
-              Authorization: "Bearer {{ hub_token }}"
-              Accept: application/json
-            body_format: json
-            body:
-              name: "{{ export_token_name }}"
-              scope:
-                - id: "{{ scope_service_id }}"
-            status_code: [200, 201]
-            return_content: true
-          register: export_token
-          no_log: true
-
-        - name: Stop unless the mint answered with the token id and value
-          ansible.builtin.assert:
-            that:
-              - export_token.json.id is defined
-              - export_token.json.token is defined
-            fail_msg: >-
-              The temporary token named {{ export_token_name }} was created, but the answer lacks its id or value.
-              Remove that token by hand in the Hub user profile.
-            quiet: true
-
-        - name: Keep the minted token id and value for the export and the delete
-          ansible.builtin.set_fact:
-            export_token_id: "{{ export_token.json.id }}"
-            export_token_value: "{{ export_token.json.token }}"
-          no_log: true
+        - name: Mint the temporary token
+          ansible.builtin.include_tasks: tasks/temp_token_mint.yml
+          vars:
+            temp_token_prefix: config-export
+            temp_token_allow_check: false
 
         - name: Export the server configuration with the temporary token
           ansible.builtin.include_role:
@@ -166,24 +47,4 @@
 
       always:
         - name: Delete the temporary token by its id
-          ansible.builtin.uri:
-            url: "{{ hub_url }}/users/{{ admin_user_id }}/permanenttokens/{{ export_token_id }}"
-            method: DELETE
-            headers:
-              Authorization: "Bearer {{ hub_token }}"
-              Accept: application/json
-            status_code: 200
-          register: export_token_delete
-          failed_when: false
-          no_log: true
-          when: export_token_id is defined
-
-        - name: Stop unless the temporary token was deleted
-          ansible.builtin.assert:
-            that:
-              - export_token_delete.status | default(0) == 200
-            fail_msg: >-
-              The temporary token named {{ export_token_name }} with id {{ export_token_id }} was not deleted.
-              Remove that token by hand in the Hub user profile.
-            quiet: true
-          when: export_token_id is defined
+          ansible.builtin.include_tasks: tasks/temp_token_delete.yml
