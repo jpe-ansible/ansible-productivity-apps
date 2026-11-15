@@ -56,6 +56,10 @@
           vars:
             bundles_enum: "{{ tofu_data.youtrack.bundles.bundles_enum }}"
             bundles_state: "{{ tofu_data.youtrack.bundles.bundles_state }}"
+            bundles_version: "{{ tofu_data.youtrack.bundles.bundles_version | default([]) }}"
+            bundles_owned: "{{ tofu_data.youtrack.bundles.bundles_owned | default([]) }}"
+            bundles_build: "{{ tofu_data.youtrack.bundles.bundles_build | default([]) }}"
+            bundles_user: "{{ tofu_data.youtrack.bundles.bundles_user | default([]) }}"
 
         - name: Match the YouTrack custom fields
           ansible.builtin.include_role:

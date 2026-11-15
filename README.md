@@ -29,7 +29,7 @@ shape. Its values are invented.
 | Key | Role | Holds |
 | --- | --- | --- |
 | `youtrack.youtrack_url` | all | Base URL of the YouTrack server. |
-| `youtrack.bundles` | `jpe_ansible.youtrack.bundles` | `bundles_enum` and `bundles_state`. |
+| `youtrack.bundles` | `jpe_ansible.youtrack.bundles` | The six `bundles_*` lists. Only `bundles_enum` and `bundles_state` are required. |
 | `youtrack.custom_fields` | `jpe_ansible.youtrack.custom_fields` | `custom_fields_declared`. |
 | `youtrack.link_types` | `jpe_ansible.youtrack.link_types` | `link_types_declared`. |
 
