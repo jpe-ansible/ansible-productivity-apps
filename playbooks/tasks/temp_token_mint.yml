@@ -31,6 +31,7 @@
     engine_mount_point: "{{ lookup('ansible.builtin.env', 'YOUTRACK_ADMIN_OPENBAO_MOUNT') }}"
     path: "{{ lookup('ansible.builtin.env', 'YOUTRACK_ADMIN_OPENBAO_PATH') }}"
   register: hub_credential
+  check_mode: false
   no_log: true
 
 - name: Check that the credential holds the Hub token field
@@ -57,6 +58,7 @@
     status_code: 200
     return_content: true
   register: admin_users
+  check_mode: false
   no_log: true
 
 - name: Stop unless exactly one user has the admin login
@@ -82,6 +84,7 @@
     status_code: 200
     return_content: true
   register: youtrack_services
+  check_mode: false
   no_log: true
   when: hub_service_override | length == 0
 
@@ -116,6 +119,7 @@
     status_code: [200, 201]
     return_content: true
   register: export_token
+  check_mode: false
   no_log: true
 
 - name: Stop unless the mint answered with the token id and value
@@ -128,7 +132,7 @@
       Remove that token by hand in the Hub user profile.
     quiet: true
 
-- name: Keep the minted token id and value for the export and the delete
+- name: Keep the minted token id and value for later tasks and the delete
   ansible.builtin.set_fact:
     export_token_id: "{{ export_token.json.id }}"
     export_token_value: "{{ export_token.json.token }}"

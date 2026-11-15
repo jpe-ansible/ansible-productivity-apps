@@ -11,6 +11,7 @@
     status_code: 200
   register: export_token_delete
   failed_when: false
+  check_mode: false
   no_log: true
   when: export_token_id is defined
 

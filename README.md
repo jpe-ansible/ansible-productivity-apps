@@ -9,7 +9,7 @@ JetBrains YouTrack, configured through the roles of the `jpe_ansible.youtrack` c
 - Ansible 2.17 or later.
 - On the controller, the Python libraries `hvac` and `boto3`.
 - Access to the object store that holds the declaration document, and to the credential store that holds the
-  object-store credentials and the YouTrack API key.
+  object-store credentials and the Hub credential of the admin user.
 
 ## Install the collections
 
@@ -37,28 +37,39 @@ The role README files list the fields of each entry.
 
 ## Environment variables
 
-The playbook stops before it contacts a server when a required variable is missing. The repo holds no value for any
-of these. It holds only the names.
+The converge playbook, `site.yml`, stops before it contacts a server when a required variable is missing. The repo holds
+no value for any of these. It holds only the names. The export playbook's variables are listed in its own section.
 
 | Variable | Required | Purpose |
 | --- | --- | --- |
 | `TOFU_INVENTORY_S3_URI` | One of the two document variables | URI of the object that holds the declaration document. |
 | `TOFU_INVENTORY_PATH` | One of the two document variables | Local path of a copy of the declaration document. |
 | `BAO_ADDR` | Yes | Address of the credential store. |
-| `BAO_TOKEN` | Yes | Token that may read the object-store credentials and the YouTrack API key. |
-| `YOUTRACK_OPENBAO_MOUNT` | Yes | KV version 2 mount that holds the YouTrack API key. |
-| `YOUTRACK_OPENBAO_PATH` | Yes | Secret path that holds the YouTrack API key. |
-| `YOUTRACK_OPENBAO_FIELD` | Yes | Field of that secret that holds the API key. |
+| `BAO_TOKEN` | Yes | Token that may read the object-store credentials and the Hub credential of the admin user. |
+| `YOUTRACK_ADMIN_OPENBAO_MOUNT` | Yes | KV version 2 mount that holds the Hub credential of the admin user. |
+| `YOUTRACK_ADMIN_OPENBAO_PATH` | Yes | Secret path that holds the Hub credential. |
+| `YOUTRACK_ADMIN_OPENBAO_FIELD` | Yes | Field of that secret that holds the permanent token of the admin user. |
+| `YOUTRACK_ADMIN_LOGIN` | Yes | Login of the admin user. The play stops unless exactly one Hub user has this login. |
+| `YOUTRACK_HUB_URL` | No | Hub REST base URL. Defaults to `<youtrack_url>/hub/api/rest`, with `youtrack_url` from the document. |
+| `YOUTRACK_HUB_SERVICE_ID` | No | Hub id of the YouTrack service. Set it to skip the lookup by application name. |
 
 ## Run
 
-Run a check first. It reads the server and writes nothing.
+Run a check first.
 
 ```sh
 ansible-playbook -i localhost, site.yml --check
 ```
 
-Run again without `--check` to apply the declaration. A run that finds nothing to change writes nothing.
+A `--check` run of the converge playbook creates one temporary permanent token of the admin user and deletes it before
+the run ends. It makes no other write: every role runs in check mode and only reports the changes it would make.
+
+Run again without `--check` to apply the declaration. Each run creates one temporary token and deletes it, also when a
+role fails. Apart from that token, a run that finds nothing to change writes nothing.
+
+The play mints and deletes the token with the task files `playbooks/tasks/temp_token_mint.yml` and
+`playbooks/tasks/temp_token_delete.yml`, which the export playbook includes too. The Hub REST base URL is
+`<youtrack_url>/hub/api/rest`, with `youtrack_url` from the document, unless `YOUTRACK_HUB_URL` is set.
 
 ## Usage
 
