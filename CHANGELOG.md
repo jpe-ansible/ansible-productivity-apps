@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/jpe-ansible/ansible-productivity-apps/compare/v0.4.0...v0.5.0) (2026-11-15)
+
+
+### Features
+
+* pass the version, owned, build and user bundles to the bundles role ([#8](https://github.com/jpe-ansible/ansible-productivity-apps/issues/8)) ([f8a8854](https://github.com/jpe-ansible/ansible-productivity-apps/commit/f8a88548b3fd2b9c388dad964725ff15bc61f55d))
+
 ## [0.4.0](https://github.com/jpe-ansible/ansible-productivity-apps/compare/v0.3.0...v0.4.0) (2026-11-15)
 
 
