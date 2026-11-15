@@ -10,5 +10,7 @@ public `jpe_ansible.youtrack` collection. It declares no values of its own.
 - Never write a real host, address, bucket, secret path, token or declared value into this repo. Read each location
   from an environment variable, and name only the variable in the repo.
 - Every task that handles a credential sets `no_log: true`.
+- Mint and delete the temporary Hub token only through `playbooks/tasks/temp_token_mint.yml` and
+  `playbooks/tasks/temp_token_delete.yml`. A playbook includes them and never repeats their tasks.
 - Keep each role's variable names. Pass document sections to roles without renaming or translating them.
 - Do not add a second fetch of the document. The `dryvist.homelab.inventory_resolve` role loads it.

@@ -1,0 +1,25 @@
+---
+# Deletes the temporary token that temp_token_mint.yml minted, by its id. A playbook includes this file in the always
+# section of the block that minted the token, so the delete also runs after a failure.
+- name: Delete the temporary token by its id
+  ansible.builtin.uri:
+    url: "{{ hub_url }}/users/{{ admin_user_id }}/permanenttokens/{{ export_token_id }}"
+    method: DELETE
+    headers:
+      Authorization: "Bearer {{ hub_token }}"
+      Accept: application/json
+    status_code: 200
+  register: export_token_delete
+  failed_when: false
+  no_log: true
+  when: export_token_id is defined
+
+- name: Stop unless the temporary token was deleted
+  ansible.builtin.assert:
+    that:
+      - export_token_delete.status | default(0) == 200
+    fail_msg: >-
+      The temporary token named {{ export_token_name }} with id {{ export_token_id }} was not deleted.
+      Remove that token by hand in the Hub user profile.
+    quiet: true
+  when: export_token_id is defined
