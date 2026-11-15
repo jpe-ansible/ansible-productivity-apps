@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/jpe-ansible/ansible-productivity-apps/compare/v0.3.0...v0.4.0) (2026-11-15)
+
+
+### Features
+
+* mint and delete a temporary token in the YouTrack playbook ([#5](https://github.com/jpe-ansible/ansible-productivity-apps/issues/5)) ([16d4de3](https://github.com/jpe-ansible/ansible-productivity-apps/commit/16d4de3bfd9079e35f60143f4cf3e889a5c1419e))
+
 ## [0.3.0](https://github.com/jpe-ansible/ansible-productivity-apps/compare/v0.2.0...v0.3.0) (2026-11-14)
 
 
